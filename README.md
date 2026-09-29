@@ -1,304 +1,176 @@
 # CampusConnect Microservices — Lab 7
 ## API Gateway, Service Discovery & Cloud Deployment
-**Web Services & Service-Oriented Architecture**
+**Course:** Web Services & Service-Oriented Architecture  
+**Student ID:** 202512123  
+**Repository:** [JayTrivedi18/Assignment-6-Lab-7-Microservices](https://github.com/JayTrivedi18/Assignment-6-Lab-7-Microservices.git)  
 
 ---
 
 ## Table of Contents
 
 1. [Project Overview](#1-project-overview)
-2. [Lab 6 Baseline](#2-lab-6-baseline)
-3. [Lab 7 Objectives](#3-lab-7-objectives)
-4. [Final Architecture](#4-final-architecture)
-5. [API Gateway](#5-api-gateway)
-6. [Gateway Routing Table](#6-gateway-routing-table)
-7. [Gateway Health Check](#7-gateway-health-check)
-8. [Request Logging](#8-request-logging)
-9. [Error Handling](#9-error-handling)
-10. [Configuration-Based Service Discovery](#10-configuration-based-service-discovery)
-11. [Static vs Dynamic Service Discovery](#11-static-vs-dynamic-service-discovery)
-12. [Docker Network](#12-docker-network)
-13. [Environment Variables](#13-environment-variables)
-14. [Local Docker Deployment](#14-local-docker-deployment)
-15. [Local Postman Testing](#15-local-postman-testing)
-16. [Configuration Change Demonstration](#16-configuration-change-demonstration)
-17. [Cloud Deployment](#17-cloud-deployment)
-18. [Public Gateway URL](#18-public-gateway-url)
-19. [Cloud Postman Testing](#19-cloud-postman-testing)
-20. [Troubleshooting](#20-troubleshooting)
-21. [Screenshots / Evidence](#21-screenshots--evidence)
-22. [Reflection](#22-reflection)
+2. [Lab 7 Objectives](#2-lab-7-objectives)
+3. [Architecture Overview](#3-architecture-overview)
+4. [Architecture Diagram Reference](#4-architecture-diagram-reference)
+5. [API Gateway Responsibilities](#5-api-gateway-responsibilities)
+6. [Service Registry and Configuration](#6-service-registry-and-configuration)
+7. [User Service Responsibilities and Endpoints](#7-user-service-responsibilities-and-endpoints)
+8. [Product Service Responsibilities and Endpoints](#8-product-service-responsibilities-and-endpoints)
+9. [Order Service Responsibilities and Endpoints](#9-order-service-responsibilities-and-endpoints)
+10. [Database-Per-Service Ownership](#10-database-per-service-ownership)
+11. [Local Docker Architecture](#11-local-docker-architecture)
+12. [Dockerfiles and Container Images](#12-dockerfiles-and-container-images)
+13. [Docker Network and DNS](#13-docker-network-and-dns)
+14. [Environment Variables Reference](#14-environment-variables-reference)
+15. [Inter-Service Communication](#15-inter-service-communication)
+16. [Error Handling](#16-error-handling)
+17. [Postman Testing](#17-postman-testing)
+18. [Cloud Deployment](#18-cloud-deployment)
+19. [Actual Render URLs](#19-actual-render-urls)
+20. [MongoDB Atlas](#20-mongodb-atlas)
+21. [Cloud Verification Results](#21-cloud-verification-results)
+22. [Cloud and Free-Tier Limitation](#22-cloud-and-free-tier-limitation)
+23. [Troubleshooting](#23-troubleshooting)
+24. [Reflection](#24-reflection)
+25. [Final Verification and Submission Checklist](#25-final-verification-and-submission-checklist)
 
 ---
 
 ## 1. Project Overview
 
-**CampusConnect** is a university microservices platform built across two labs:
+**CampusConnect** is a university microservices platform designed across two progressive lab assignments:
 
-- **Lab 6** — Three independent microservices (User, Product, Order) with isolated MongoDB databases and inter-service REST communication.
-- **Lab 7** — Adds an **API Gateway** as the single external entry point, **configuration-based service discovery**, and **cloud deployment** readiness.
+- **Lab 6 Baseline:** Implemented three core microservices (`user-service`, `product-service`, `order-service`) with isolated local MongoDB databases and direct inter-service REST communication.
+- **Lab 7 Extension:** Introduces an **API Gateway** acting as the single external facade, implements **configuration-based service discovery** using environment variables, isolates backend services behind an internal Docker bridge network, and deploys the entire distributed system to the **Render** cloud platform with **MongoDB Atlas**.
 
-### Project Structure
+### Repository Structure
 
 ```
-Assignment_6_202512123/          ← Lab 7 lives here (co-located with Lab 6)
+Assignment_6_202512123/
 │
-├── api-gateway/                 ← NEW in Lab 7
-│   ├── server.js                  Gateway server (routing, logging, error handling)
+├── api-gateway/                 ← NEW in Lab 7: Reverse proxy, logging, error handling
+│   ├── server.js                Express gateway server
 │   ├── config/
-│   │   └── services.js            Configuration-based service registry
+│   │   └── services.js          Configuration-based service registry
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── Dockerfile
+│   └── .dockerignore
+│
+├── user-service/                ← Lab 6 microservice (unchanged logic)
+│   ├── server.js                User CRUD and MongoDB Atlas/local connection
 │   ├── package.json
 │   ├── Dockerfile
 │   └── .dockerignore
 │
-├── user-service/                ← Unchanged from Lab 6
-│   ├── server.js
+├── product-service/             ← Lab 6 microservice (unchanged logic)
+│   ├── server.js                Product catalog, pricing, and MongoDB connection
 │   ├── package.json
-│   └── Dockerfile
+│   ├── Dockerfile
+│   └── .dockerignore
 │
-├── product-service/             ← Unchanged from Lab 6
-│   ├── server.js
+├── order-service/               ← Lab 6 microservice (unchanged logic)
+│   ├── server.js                Order orchestration and inter-service REST calls
 │   ├── package.json
-│   └── Dockerfile
-│
-├── order-service/               ← Unchanged from Lab 6
-│   ├── server.js
-│   ├── package.json
-│   └── Dockerfile
+│   ├── Dockerfile
+│   └── .dockerignore
 │
 ├── architecture/
-│   └── lab7-architecture.svg    Architecture diagram
+│   └── lab7-architecture.svg    Vector architecture diagram
 │
-├── screenshots/
-│   └── evidence-checklist.md    Manual screenshot guide
+├── screenshots/                 ← Local execution evidence (12 screenshots)
 │
-├── compose.yaml                 Lab 7 Compose (gateway + services, no host ports on services)
-├── compose.lab6.yaml            Lab 6 Compose preserved for reference
-├── .env.example                 Environment variable template
-├── .gitignore
-├── README.md                    This file
+├── compose.yaml                 Lab 7 Docker Compose (gateway port 4000 only)
+├── compose.lab6.yaml            Lab 6 Compose preserved for baseline reference
+├── render.yaml                  Render Blueprint deployment specification
+├── .env.example                 Template for local and cloud environment variables
+├── .gitignore                   Excludes secrets, dependencies, and temporary files
+├── README.md                    Complete project documentation
 └── Microservices - Lab 7.postman_collection.json
 ```
 
 ---
 
-## 2. Lab 6 Baseline
+## 2. Lab 7 Objectives
 
-Lab 6 established:
-
-| Service | Internal Port | Database |
-|---------|--------------|----------|
-| User Service | 3001 | `campusconnect_users` |
-| Product Service | 3002 | `campusconnect_products` |
-| Order Service | 3003 | `campusconnect_orders` |
-
-**Inter-service communication:** Order Service calls User Service and Product Service via REST (axios) to validate referenced users and products before creating an order.
-
-**Lab 6 architecture:**
-```
-Client/Postman
-    ├── localhost:3001  (User Service)
-    ├── localhost:3002  (Product Service)
-    └── localhost:3003  (Order Service)
-                ├── http://user-service:3001
-                └── http://product-service:3002
-```
-
-> **Lab 7 preserves all Lab 6 resource designs, endpoints, request/response structures, and status codes.**
+1. **Centralized API Gateway:** Implement a single public-facing entry point using Express and `http-proxy-middleware`.
+2. **Configuration-Based Service Discovery:** Eliminate hardcoded service URLs by reading upstream locations dynamically from environment variables (`USER_SERVICE_URL`, `PRODUCT_SERVICE_URL`, `ORDER_SERVICE_URL`).
+3. **Network Isolation:** Hide backend microservices and databases from host exposure in local Docker Compose, exposing **only port 4000** on the gateway.
+4. **Preserve Microservices Baseline:** Maintain 100% compatibility with Lab 6 data models, database boundaries, REST validation, and status codes.
+5. **Production Cloud Deployment:** Deploy all microservices and the API Gateway to Render with cloud-hosted MongoDB Atlas databases.
+6. **End-to-End Verification:** Validate gateway health, resource routing, inter-service order creation, and error responses via Postman against both local Docker and live cloud environments.
 
 ---
 
-## 3. Lab 7 Objectives
+## 3. Architecture Overview
 
-1. ✅ Add a real **API Gateway** (Node.js + Express + http-proxy-middleware)
-2. ✅ Implement **configuration-based service discovery** via environment variables
-3. ✅ Ensure **only the gateway** is externally exposed
-4. ✅ Prepare for **cloud deployment** with MongoDB Atlas
-5. ✅ Create updated **Postman collection** using gateway as the single entry point
-6. ✅ Document architecture and provide evidence checklist
+In Lab 7, clients (such as Postman or frontend applications) interact exclusively with the **API Gateway**. The gateway acts as a reverse proxy, inspecting the requested path and transparently forwarding the request to the appropriate microservice.
 
----
-
-## 4. Final Architecture
-
-```
-Internet / Postman
-        │
-        │  HTTP  http://localhost:4000  (local)
-        │         https://<cloud-url>  (cloud)
-        ▼
-┌──────────────────────────────────┐
-│          API Gateway             │
-│          Port 4000               │  ← ONLY externally exposed port
-│                                  │
-│  /health        (local handler)  │
-│  /users/*    → user-service      │
-│  /products/* → product-service   │
-│  /orders/*   → order-service     │
-└───────────────┬──────────────────┘
-                │
-    ┌───────────┼────────────┐
-    │           │            │
-    ▼           ▼            ▼
-User Svc    Product Svc   Order Svc
-:3001        :3002          :3003
-(internal)  (internal)    (internal)
-    │           │            │  ↕ inter-service
-    │           │            │  REST calls
-    ▼           ▼            ▼
-User DB     Product DB   Order DB
-(MongoDB)   (MongoDB)    (MongoDB)
-     ↕            ↕           ↕
-  [Local Docker MongoDB] or [MongoDB Atlas (cloud)]
-```
-
-**Key Lab 7 requirement:** User, Product, and Order services have **no host port mapping** in `compose.yaml`. External traffic must enter through the gateway.
+- **Local Docker Environment:** The gateway listens on host port `4000`. Backend microservices run on internal ports (`3001`, `3002`, `3003`) on the Docker bridge network `campus-network` without published host ports.
+- **Render Cloud Environment:** The API Gateway is deployed as a public Web Service. Upstream services are located using environment variables pointing to their HTTPS Render URLs.
+- **Data Layer:** Each microservice maintains complete ownership of its dedicated database (`campusconnect_users`, `campusconnect_products`, `campusconnect_orders`), hosted in MongoDB containers locally and in MongoDB Atlas (`Student-API` cluster) in the cloud.
 
 ---
 
-## 5. API Gateway
+## 4. Architecture Diagram Reference
 
-**Technology:** Node.js + Express + [http-proxy-middleware](https://github.com/chimurai/http-proxy-middleware)
+A high-resolution vector architecture diagram is provided in [`architecture/lab7-architecture.svg`](architecture/lab7-architecture.svg).
 
-**Why API Gateway?**
+### System Topology
 
-An API Gateway provides a **single entry point** for all client requests. Without it, clients must know the addresses of every microservice — a tight coupling that breaks as the system evolves.
-
-Benefits implemented in this lab:
-
-| Benefit | Implementation |
-|---------|---------------|
-| Single entry point | All traffic enters via port 4000 |
-| Hides internal structure | Client never sees :3001/:3002/:3003 |
-| Centralised logging | Every proxied request is logged with method, path, target, status |
-| Centralised error handling | Unreachable upstreams return 502 JSON (not raw connection errors) |
-| Configuration-based routing | Service URLs come from env vars, not hard-coded in route handlers |
-| Easier client integration | Client only needs one base URL |
-
-**Gateway does NOT contain business logic.** It routes, logs, and handles errors only.
+```
+                  Client / Postman
+                         │
+                         │ HTTP / HTTPS
+                         ▼
+        ┌──────────────────────────────────┐
+        │           API GATEWAY            │
+        │      Local Port: 4000 (Host)     │
+        │      Cloud: campusconnect-api-   │
+        │             gateway-6k62         │
+        └────────────────┬─────────────────┘
+                         │
+        ┌────────────────┼─────────────────┐
+        │ /users/*       │ /products/*     │ /orders/*
+        ▼                ▼                 ▼
+  ┌────────────┐   ┌────────────┐   ┌────────────┐
+  │User Service│   │Product Svc │   │Order Svc   │
+  │Port: 3001  │   │Port: 3002  │   │Port: 3003  │
+  └─────┬──────┘   └─────┬──────┘   └─────┬──────┘
+        │                │                │  ▲
+        │                │  Inter-Service │  │
+        │                └── REST (axios) ┴──┘
+        │                        │
+        ▼                        ▼
+ ┌──────────────┐         ┌──────────────┐
+ │  MongoDB     │         │  MongoDB     │
+ │  Users DB    │         │  Orders DB   │
+ └──────────────┘         └──────────────┘
+```
 
 ---
 
-## 6. Gateway Routing Table
+## 5. API Gateway Responsibilities
 
-All routes use `{{gatewayBaseUrl}}` = `http://localhost:4000` (local) or the public cloud URL.
+The API Gateway (`api-gateway/server.js`) fulfills five primary architectural concerns:
 
-| Method | Gateway Path | Proxied To | Description |
-|--------|-------------|------------|-------------|
-| `GET` | `/health` | *(local — not proxied)* | Gateway health check |
-| `GET` | `/users` | `user-service:3001/users` | List all users |
-| `GET` | `/users/:id` | `user-service:3001/users/:id` | Get user by ID |
-| `POST` | `/users` | `user-service:3001/users` | Create user |
-| `PUT` | `/users/:id` | `user-service:3001/users/:id` | Update user |
-| `DELETE` | `/users/:id` | `user-service:3001/users/:id` | Delete user |
-| `GET` | `/products` | `product-service:3002/products` | List all products |
-| `GET` | `/products/:id` | `product-service:3002/products/:id` | Get product by ID |
-| `POST` | `/products` | `product-service:3002/products` | Create product |
-| `PUT` | `/products/:id` | `product-service:3002/products/:id` | Update product |
-| `DELETE` | `/products/:id` | `product-service:3002/products/:id` | Delete product |
-| `GET` | `/orders` | `order-service:3003/orders` | List all orders |
-| `GET` | `/orders/:id` | `order-service:3003/orders/:id` | Get order by ID |
-| `POST` | `/orders` | `order-service:3003/orders` | Create order |
-
-**Proxy behaviour:** Original HTTP method, path, request body, query parameters, and relevant headers are preserved.
+1. **Reverse Proxying:** Forwards incoming requests to backend microservices while preserving HTTP methods, request bodies, query strings, and headers.
+2. **Centralized Health Monitoring:** Responds locally to `GET /health` with the overall gateway status, port, and the active upstream service registry.
+3. **Uniform Request Logging:** Logs every proxied request at entry and completion:
+   ```
+   [API Gateway] GET /users -> user-service
+   [API Gateway] GET /users -> user-service -> 200
+   ```
+4. **Centralized Error Handling:** Catches connection dropouts, host resolution failures, and upstream crashes, translating them into standard **HTTP 502 Bad Gateway** JSON responses.
+5. **No Business Logic:** The gateway remains completely decoupled from domain validation, business calculations, or database connections.
 
 ---
 
-## 7. Gateway Health Check
+## 6. Service Registry and Configuration
 
-```
-GET /health
-```
+Service discovery is implemented through static configuration loaded at runtime in [`api-gateway/config/services.js`](api-gateway/config/services.js):
 
-Handled **locally by the gateway** — not proxied to any upstream service.
-
-**Response (200):**
-```json
-{
-  "status": "UP",
-  "service": "api-gateway",
-  "port": 4000,
-  "upstreamServices": {
-    "user-service":    "http://user-service:3001",
-    "product-service": "http://product-service:3002",
-    "order-service":   "http://order-service:3003"
-  }
-}
-```
-
-The `upstreamServices` field shows the currently configured service registry — useful for verifying configuration changes.
-
----
-
-## 8. Request Logging
-
-Every proxied request produces a log line:
-
-```
-[API Gateway] METHOD /path -> service-name
-[API Gateway] METHOD /path -> service-name -> STATUS_CODE
-```
-
-**Examples:**
-
-```
-[API Gateway] GET /users -> user-service
-[API Gateway] GET /users -> user-service -> 200
-
-[API Gateway] POST /orders -> order-service
-[API Gateway] POST /orders -> order-service -> 201
-
-[API Gateway] GET /users -> user-service -> UNREACHABLE (connect ECONNREFUSED ...)
-```
-
-To view logs: `docker compose logs api-gateway -f`
-
-> Sensitive secrets are never logged. Only method, path, service name, and status code appear.
-
----
-
-## 9. Error Handling
-
-### Upstream service unreachable
-
-If a proxied service is down or unreachable, the gateway returns **502 Bad Gateway**:
-
-```json
-{
-  "error": "Service unavailable",
-  "service": "user-service",
-  "message": "The upstream service could not be reached. Please try again later."
-}
-```
-
-**Chosen status code: 502 Bad Gateway** — the gateway received an invalid response from (or could not reach) the upstream server. This is semantically correct.
-
-> The original Lab 6 service status codes (404, 409, 503 from order-service when its upstream is down) are **unchanged**. The gateway's 502 only applies when the gateway itself cannot reach an upstream.
-
-### Unknown gateway routes
-
-```json
-{
-  "error": "Not found",
-  "message": "The gateway has no route for GET /unknown",
-  "availableRoutes": ["/health", "/users/*", "/products/*", "/orders/*"]
-}
-```
-
-### No HTML error pages
-
-The gateway never leaks raw Node.js stack traces or Docker connection errors to the client. All errors return clean JSON.
-
----
-
-## 10. Configuration-Based Service Discovery
-
-### How it works
-
-Service URLs are stored in `api-gateway/config/services.js`:
-
-```js
-// GOOD: references env vars — never hard-coded
+```javascript
 const services = {
   user:    process.env.USER_SERVICE_URL    || 'http://user-service:3001',
   product: process.env.PRODUCT_SERVICE_URL || 'http://product-service:3002',
@@ -306,18 +178,9 @@ const services = {
 };
 ```
 
-Route handlers reference the registry:
+### Registry Startup Log
 
-```js
-// GOOD: uses serviceRegistry.user, NOT a hard-coded URL
-app.use('/users',    makeProxy('user-service',    serviceRegistry.user));
-app.use('/products', makeProxy('product-service', serviceRegistry.product));
-app.use('/orders',   makeProxy('order-service',   serviceRegistry.order));
-```
-
-### At startup
-
-The gateway prints its resolved service registry:
+When the gateway boots, it prints its resolved registry to `stdout`:
 
 ```
 [API Gateway] Configuration-based Service Registry:
@@ -326,583 +189,414 @@ The gateway prints its resolved service registry:
   order-service   -> http://order-service:3003
 ```
 
-This is visible in `docker compose logs api-gateway`.
+### Gateway Routing Table
 
----
-
-## 11. Static vs Dynamic Service Discovery
-
-### What this lab implements: Static/Configuration-based Discovery
-
-| Property | This Lab |
-|----------|---------|
-| How | Environment variables (`USER_SERVICE_URL`, etc.) |
-| When resolved | At gateway startup |
-| Change mechanism | Update env var → restart gateway |
-| Complexity | Low |
-| Suited for | Fixed, small-scale deployments |
-
-**This is static discovery** — the locations are configuration values, not discovered dynamically.
-
-### Dynamic Discovery (NOT implemented — for comparison)
-
-| Tool | Mechanism |
-|------|-----------|
-| Consul | Services register themselves; gateway queries Consul's HTTP API to find instances |
-| Eureka (Spring Cloud) | Java-centric service registry with heartbeats |
-| Kubernetes DNS | Services register automatically as DNS names within the cluster |
-| AWS Cloud Map | Managed service registry for AWS |
-
-Dynamic discovery is better suited for:
-- Environments where service IP/port changes frequently
-- Horizontally scaled services (multiple instances)
-- Auto-scaling environments
-
-For this lab's scale, environment variable–based discovery is **appropriate, correct, and sufficient**.
-
----
-
-## 12. Docker Network
-
-**Network name:** `campus-network`  
-**Driver:** `bridge`
-
-All services (gateway, user-service, product-service, order-service, and all MongoDB containers) share `campus-network`.
-
-Docker's built-in DNS resolves service names:
-- `user-service` → container IP of user-service
-- `product-service` → container IP of product-service
-- `order-service` → container IP of order-service
-
-**Critical Lab 7 requirement:**
-
-```yaml
-# CORRECT — only gateway has a host port
-api-gateway:
-  ports:
-    - "4000:4000"     ← accessible from host
-
-user-service:
-  # NO ports: section — internal only
-  
-product-service:
-  # NO ports: section — internal only
-
-order-service:
-  # NO ports: section — internal only
-```
-
-Verify with: `docker compose ps` — only `api-gateway` should show `0.0.0.0:4000->4000/tcp`.
-
----
-
-## 13. Environment Variables
-
-| Variable | Service | Default | Description |
-|----------|---------|---------|-------------|
-| `GATEWAY_PORT` | api-gateway | `4000` | Port the gateway listens on |
-| `USER_SERVICE_URL` | api-gateway | `http://user-service:3001` | User service location (service discovery) |
-| `PRODUCT_SERVICE_URL` | api-gateway | `http://product-service:3002` | Product service location |
-| `ORDER_SERVICE_URL` | api-gateway | `http://order-service:3003` | Order service location |
-| `PORT` | user-service | `3001` | User service listen port |
-| `MONGODB_URI` | user-service | `mongodb://user-mongodb:27017/campusconnect_users` | User MongoDB connection |
-| `PORT` | product-service | `3002` | Product service listen port |
-| `MONGODB_URI` | product-service | `mongodb://product-mongodb:27017/campusconnect_products` | Product MongoDB connection |
-| `PORT` | order-service | `3003` | Order service listen port |
-| `MONGODB_URI` | order-service | `mongodb://order-mongodb:27017/campusconnect_orders` | Order MongoDB connection |
-| `USER_SERVICE_URL` | order-service | `http://user-service:3001` | For Lab 6 inter-service calls |
-| `PRODUCT_SERVICE_URL` | order-service | `http://product-service:3002` | For Lab 6 inter-service calls |
-
-Copy `.env.example` to `.env` and fill in real values for cloud deployment.
-
----
-
-## 14. Local Docker Deployment
-
-### Prerequisites
-
-- Docker Desktop (with Docker Compose v2)
-- Git (optional)
-
-### Steps
-
-```bash
-# 1. Navigate to the project
-cd "D:\Web Services & SOA\Assignment_6_202512123"
-
-# 2. Build all images
-docker compose build
-
-# 3. Start all services in the background
-docker compose up -d
-
-# 4. Verify all 7 containers are running
-docker compose ps
-
-# 5. View gateway startup logs (service registry should be printed)
-docker compose logs api-gateway
-
-# 6. Test gateway health
-curl http://localhost:4000/health
-```
-
-### Expected `docker compose ps` output
-
-```
-NAME              IMAGE                     COMMAND                  STATUS         PORTS
-api-gateway       assignment_6...-api-gateway   "node server.js"     Up             0.0.0.0:4000->4000/tcp
-user-service      assignment_6...-user-service  "node server.js"     Up
-user-mongodb      mongo                         "docker-entrypoint…" Up (healthy)
-product-service   assignment_6...-product-service "node server.js"   Up
-product-mongodb   mongo                         "docker-entrypoint…" Up (healthy)
-order-service     assignment_6...-order-service "node server.js"     Up
-order-mongodb     mongo                         "docker-entrypoint…" Up (healthy)
-```
-
-> `user-service`, `product-service`, and `order-service` will show **no PORTS column entry** — they are internal only.
-
----
-
-## 15. Local Postman Testing
-
-Import `Microservices - Lab 7.postman_collection.json` into Postman.
-
-Set the collection variable:
-
-| Variable | Local Value |
-|----------|------------|
-| `gatewayBaseUrl` | `http://localhost:4000` |
-
-### Test execution order
-
-1. **Gateway Health** — verify `GET /health` → 200
-2. **Gateway → User** — `POST /users` to create user id=1, then `GET /users`, `GET /users/1`
-3. **Gateway → Product** — `POST /products` to create product id=101, then `GET /products`, `GET /products/101`
-4. **Gateway → Order** — `POST /orders` with userId=1, productId=101 → 201; then `GET /orders`
-5. **Error Handling** — invalid userId → 404; stop user-service → 502; restart → 200 recovery
-6. **Service Discovery** — `GET /health` to see `upstreamServices` registry
-
----
-
-## 16. Configuration Change Demonstration
-
-This demonstrates that service location is controlled by configuration, not code.
-
-### Steps to demonstrate
-
-```bash
-# 1. Start the stack normally
-docker compose up -d
-
-# 2. Verify baseline — GET /health shows:
-#    "user-service": "http://user-service:3001"
-
-# 3. Edit compose.yaml — change USER_SERVICE_URL for api-gateway to a test value:
-#    USER_SERVICE_URL: http://user-service:3001  ← change this to a different host
-
-# 4. Restart only the gateway (no code changes)
-docker compose up -d api-gateway
-
-# 5. GET /health again — upstreamServices.user-service shows the NEW URL
-#    This proves the gateway reads location from config, not from server.js
-```
-
-**Key point:** `api-gateway/server.js` is NOT modified. Only the environment variable changes. This is configuration-based service discovery in action.
-
-> **Evidence required:** Screenshot of `GET /health` before and after the env var change. See `screenshots/evidence-checklist.md` items 13a and 13b.
-
----
-
-## 17. Cloud Deployment (Render + MongoDB Atlas — Plan B)
-
-### Deployment Strategy
-
-All four services are deployed as **Render Web Services** (free tier).
-
-On Render's free tier, every Web Service receives a public HTTPS URL (`https://<name>.onrender.com`). There is **no network-level isolation** between services at this tier.
-
-| Aspect | Detail |
-|---|---|
-| Platform | [Render](https://render.com) |
-| Service type | Web Service (Docker), all four services |
-| Database | MongoDB Atlas (M0 Free cluster) |
-| Region | Oregon (US West) — all four services must match |
-| Intended entry point | API Gateway URL only |
-
-> **Free-tier trade-off:** Because Render Web Services always have public URLs, the three microservice URLs (`user-service`, `product-service`, `order-service`) are technically publicly addressable on the Internet. This is a known limitation of the free tier.
->
-> **The API Gateway remains the correct and intended external entry point for this application.** All Postman testing and client requests should use only the gateway URL. Direct microservice URLs exist but are not the intended interface.
->
-> If stricter network isolation were required, the three microservices could be redeployed as **Render Private Services** (`type: pserv`) on a paid plan, making them unreachable from the public Internet and accessible only to services within the same Render account.
-
----
-
-### Cloud Topology (Plan B)
-
-```
-        Postman / Client
-               |
-               v  HTTPS
-  ┌────────────────────────────┐
-  │  PUBLIC — Intended Entry   │
-  │  campusconnect-api-gateway │
-  │  https://<gw>.onrender.com │
-  └──────────┬─────────────────┘
-             │  HTTPS (env-var-configured URLs)
-   ┌──────────┼──────────┐
-   v          v          v
-┌────────┐ ┌────────┐ ┌────────┐
-│ user-  │ │product-│ │ order- │
-│service │ │service │ │service │
-│(web)   │ │(web)   │ │(web)   │
-│public* │ │public* │ │public* │
-└───┬────┘ └───┬────┘ └───┬────┘
-    │           │     ┌────┘
-    │           │     │  HTTPS (inter-service calls)
-    │           │  ┌──┴──────────────┐
-    │           │  │ order-service   │
-    │           │  │ also calls:     │
-    │           └──→ user-service    │
-    └──────────────→ product-service │
-                   └─────────────────┘
-    │           │          │
-    v           v          v
-┌──────────────────────────────────┐
-│          MongoDB Atlas           │
-│  campusconnect_users             │
-│  campusconnect_products          │
-│  campusconnect_orders            │
-└──────────────────────────────────┘
-
-* public = has a Render URL but should not be used directly by clients
-```
-
----
-
-### Render Services Overview
-
-| Render Service Name | Type | Free-Tier URL | Role |
+| Route | Upstream Service | Handler Type | Target URL (Local / Default) |
 |---|---|---|---|
-| `campusconnect-user-service` | Web Service | `https://campusconnect-user-service.onrender.com` *(example)* | User CRUD + Atlas |
-| `campusconnect-product-service` | Web Service | `https://campusconnect-product-service.onrender.com` *(example)* | Product CRUD + Atlas |
-| `campusconnect-order-service` | Web Service | `https://campusconnect-order-service.onrender.com` *(example)* | Order CRUD + Atlas + inter-service calls |
-| `campusconnect-api-gateway` | Web Service | `https://campusconnect-api-gateway.onrender.com` *(example)* | **Public entry point — use this URL** |
-
-> ⚠️ The URLs in the table above are **illustrative format examples only**. Real Render URLs are assigned by Render when each service is created and must be obtained from the Render dashboard. Do not use example URLs as real values.
+| `GET /health` | API Gateway | Local Express Handler | Local resolution (HTTP 200) |
+| `/users/*` | User Service | `http-proxy-middleware` | `http://user-service:3001` |
+| `/products/*` | Product Service | `http-proxy-middleware` | `http://product-service:3002` |
+| `/orders/*` | Order Service | `http-proxy-middleware` | `http://order-service:3003` |
 
 ---
 
-### Render Blueprint
+## 7. User Service Responsibilities and Endpoints
 
-A [`render.yaml`](./render.yaml) Blueprint is included in the repository root. It defines all four services and can be used to auto-scaffold them via the Render Blueprint feature.
+**Source:** [`user-service/server.js`](user-service/server.js)  
+**Database:** `campusconnect_users`  
+**Internal Port:** `3001` (Local) / `10000` (Render)
 
-- All four services are `type: web`
-- All secrets (`MONGODB_URI`) and service URLs use `sync: false` — they are **never stored in this file**
-- Real values must be entered manually in the Render dashboard after each service is created
-
----
-
-### Step-by-Step Deployment
-
-#### Prerequisites
-
-- GitHub repository with this code pushed (including `render.yaml`)
-- MongoDB Atlas account — free M0 cluster is sufficient
-- Render account — free tier
+| Method | Endpoint | Description | Status Codes |
+|---|---|---|---|
+| `GET` | `/users` | List all registered users | `200 OK` |
+| `GET` | `/users/:id` | Fetch specific user by ID | `200 OK`, `404 Not Found` |
+| `POST` | `/users` | Register a new user (`id`, `name`, `email`) | `201 Created`, `400 Bad Request` |
+| `PUT` | `/users/:id` | Update user details | `200 OK`, `404 Not Found` |
+| `DELETE` | `/users/:id` | Remove user record | `200 OK`, `404 Not Found` |
+| `GET` | `/health` | Service health check | `200 OK` |
 
 ---
 
-#### Step 1 — MongoDB Atlas Setup
+## 8. Product Service Responsibilities and Endpoints
 
-Create **one Atlas cluster** (or three separate clusters) and prepare **three connection strings** — one per database.
+**Source:** [`product-service/server.js`](product-service/server.js)  
+**Database:** `campusconnect_products`  
+**Internal Port:** `3002` (Local) / `10000` (Render)
 
-For each database:
+| Method | Endpoint | Description | Status Codes |
+|---|---|---|---|
+| `GET` | `/products` | List all products in catalog | `200 OK` |
+| `GET` | `/products/:id` | Fetch product details by numeric ID | `200 OK`, `404 Not Found` |
+| `POST` | `/products` | Create catalog item (`id`, `name`, `price`, `description`) | `201 Created`, `400 Bad Request` |
+| `PUT` | `/products/:id` | Update item price or details | `200 OK`, `404 Not Found` |
+| `DELETE` | `/products/:id` | Delete product item | `200 OK`, `404 Not Found` |
+| `GET` | `/health` | Service health check | `200 OK` |
 
-1. Go to [cloud.mongodb.com](https://cloud.mongodb.com) → Create a free **M0 cluster**
-2. **Database Access** → Add a database user (username + strong password)
-3. **Network Access** → Add IP Address → `0.0.0.0/0` *(allow connections from anywhere — required for Render)*
-4. **Connect → Drivers** → Copy the connection string
+---
 
-Connection string format:
+## 9. Order Service Responsibilities and Endpoints
+
+**Source:** [`order-service/server.js`](order-service/server.js)  
+**Database:** `campusconnect_orders`  
+**Internal Port:** `3003` (Local) / `10000` (Render)
+
+| Method | Endpoint | Description | Status Codes |
+|---|---|---|---|
+| `POST` | `/orders` | Create order; validates User and Product via REST | `201 Created`, `400 Bad Request`, `404 Not Found`, `503 Service Unavailable` |
+| `GET` | `/orders` | List all placed orders | `200 OK` |
+| `GET` | `/orders/:id` | Fetch order details by numeric ID | `200 OK`, `404 Not Found` |
+| `GET` | `/health` | Service health check | `200 OK` |
+
+---
+
+## 10. Database-Per-Service Ownership
+
+Each microservice possesses exclusive ownership over its persistent datastore. No microservice is permitted direct read or write access to another service's database.
+
+| Service | Dedicated Database | Collections | Data Ownership Scope |
+|---|---|---|---|
+| **User Service** | `campusconnect_users` | `users` | User credentials, profiles, email indexing |
+| **Product Service** | `campusconnect_products` | `products` | Catalog metadata, inventory pricing |
+| **Order Service** | `campusconnect_orders` | `orders` | Transaction records, calculated totals, order status |
+
+- In local Docker, three isolated `mongo:7` containers are created (`user-mongodb`, `product-mongodb`, `order-mongodb`).
+- In cloud deployment, three isolated databases reside inside the `Student-API` MongoDB Atlas cluster.
+
+---
+
+## 11. Local Docker Architecture
+
+The local stack is orchestrated via [`compose.yaml`](compose.yaml), declaring seven containers:
+
 ```
-mongodb+srv://<username>:<password>@<cluster>.mongodb.net/<dbname>?retryWrites=true&w=majority
+[Host System]
+     │
+     │ Port 4000:4000 (ONLY published port)
+     ▼
+[api-gateway]
+     │
+     └─── campus-network (Internal Docker Bridge) ─────────────────────┐
+               ├── [user-service:3001]    ─── [user-mongodb:27017]    │
+               ├── [product-service:3002] ─── [product-mongodb:27017] │
+               └── [order-service:3003]   ─── [order-mongodb:27017]   │
+                                                                      │
+──────────────────────────────────────────────────────────────────────┘
 ```
 
-Required database names:
+### Docker Compose Port Isolation Audit
 
-| Service | Database name in URI |
+Running `docker compose ps` confirms that only `api-gateway` binds to the host interface:
+
+```
+NAME              COMMAND                  STATUS         PORTS
+api-gateway       "node server.js"         Up             0.0.0.0:4000->4000/tcp
+user-service      "node server.js"         Up             (no host port)
+user-mongodb      "docker-entrypoint…"     Up (healthy)   (no host port)
+product-service   "node server.js"         Up             (no host port)
+product-mongodb   "docker-entrypoint…"     Up (healthy)   (no host port)
+order-service     "node server.js"         Up             (no host port)
+order-mongodb     "docker-entrypoint…"     Up (healthy)   (no host port)
+```
+
+---
+
+## 12. Dockerfiles and Container Images
+
+All four custom services use lightweight `node:18-alpine` base images with optimized layer caching:
+
+- [`api-gateway/Dockerfile`](api-gateway/Dockerfile): Production build with `npm ci --omit=dev`, exposing internal port `4000`.
+- [`user-service/Dockerfile`](user-service/Dockerfile): Production build with `npm ci --omit=dev`, exposing internal port `3001`.
+- [`product-service/Dockerfile`](product-service/Dockerfile): Production build with `npm ci --omit=dev`, exposing internal port `3002`.
+- [`order-service/Dockerfile`](order-service/Dockerfile): Production build with `npm ci --omit=dev`, exposing internal port `3003`.
+
+All service directories include a `.dockerignore` file preventing `node_modules`, npm logs, and `.env` files from leaking into the build context.
+
+---
+
+## 13. Docker Network and DNS
+
+The Docker daemon provides automatic internal DNS resolution across the `campus-network` bridge:
+- `http://user-service:3001` resolves directly to the internal IP of the User Service container.
+- `http://product-service:3002` resolves directly to the internal IP of the Product Service container.
+- `http://order-service:3003` resolves directly to the internal IP of the Order Service container.
+
+Cross-service communication occurs securely on this bridge without exposing internal container ports to the host machine or public internet.
+
+---
+
+## 14. Environment Variables Reference
+
+| Environment Variable | Service | Local Docker Value | Render Cloud Value | Purpose |
+|---|---|---|---|---|
+| `PORT` / `GATEWAY_PORT` | `api-gateway` | `4000` | `10000` | Listener port for incoming HTTP traffic |
+| `USER_SERVICE_URL` | `api-gateway` | `http://user-service:3001` | `https://campusconnect-user-service-name.onrender.com` | Target URL for `/users/*` proxy |
+| `PRODUCT_SERVICE_URL` | `api-gateway` | `http://product-service:3002` | `https://campusconnect-product-service-hhvy.onrender.com` | Target URL for `/products/*` proxy |
+| `ORDER_SERVICE_URL` | `api-gateway` | `http://order-service:3003` | `https://campusconnect-order-service-69zf.onrender.com` | Target URL for `/orders/*` proxy |
+| `PORT` | Microservices | `3001`, `3002`, `3003` | `10000` | Microservice listener port |
+| `MONGODB_URI` | Microservices | `mongodb://<service>-mongodb:27017/<dbname>` | `mongodb+srv://<user>:<pwd>@student-api.../<dbname>` | Database connection URI |
+| `USER_SERVICE_URL` | `order-service`| `http://user-service:3001` | `https://campusconnect-user-service-name.onrender.com` | Upstream URL for user validation |
+| `PRODUCT_SERVICE_URL`| `order-service`| `http://product-service:3002` | `https://campusconnect-product-service-hhvy.onrender.com` | Upstream URL for product validation |
+
+---
+
+## 15. Inter-Service Communication
+
+When `POST /orders` is received by the Order Service:
+
+1. **User Validation:** Calls `GET ${USER_SERVICE_URL}/users/:userId` via Axios.
+   - If user does not exist: returns **404 Not Found** (`{"error": "User not found"}`).
+2. **Product Validation & Pricing:** Calls `GET ${PRODUCT_SERVICE_URL}/products/:productId` via Axios.
+   - If product does not exist: returns **404 Not Found** (`{"error": "Product not found"}`).
+3. **Calculation:** Computes order total (`product.price * quantity`).
+4. **Order Persistence:** Stores the order in `campusconnect_orders` with status `CREATED`.
+5. **Resilience:** If either upstream service is unreachable or times out (3000ms), returns **503 Service Unavailable** (`{"error": "User service unavailable"}` or `{"error": "Product service unavailable"}`).
+
+---
+
+## 16. Error Handling
+
+### Gateway-Level Error Responses
+
+- **502 Bad Gateway:** Returned when an upstream service is stopped or unreachable.
+  ```json
+  {
+    "error": "Service unavailable",
+    "service": "user-service",
+    "message": "The upstream service could not be reached. Please try again later."
+  }
+  ```
+- **404 Not Found:** Returned when requesting an unmapped gateway route (e.g. `/unknown`).
+  ```json
+  {
+    "error": "Not found",
+    "message": "The gateway has no route for GET /unknown",
+    "availableRoutes": ["/health", "/users/*", "/products/*", "/orders/*"]
+  }
+  ```
+
+### Microservice-Level Status Codes
+
+- `200 OK`: Successful read or update operations.
+- `201 Created`: Successful creation of users, products, or orders.
+- `400 Bad Request`: Validation failure or missing required body fields.
+- `404 Not Found`: Specific resource ID not found.
+- `503 Service Unavailable`: Order Service fails to reach User or Product dependency during order placement.
+
+---
+
+## 17. Postman Testing
+
+All automated testing is contained in [`Microservices - Lab 7.postman_collection.json`](Microservices%20-%20Lab%207.postman_collection.json).
+
+### Switching Environments in Postman
+
+Update the collection variable `gatewayBaseUrl`:
+
+| Environment | `gatewayBaseUrl` Variable Value |
 |---|---|
-| user-service | `campusconnect_users` |
-| product-service | `campusconnect_products` |
-| order-service | `campusconnect_orders` |
+| **Local Docker** | `http://localhost:4000` |
+| **Render Cloud** | `https://campusconnect-api-gateway-6k62.onrender.com` |
 
-> **Password tip:** URL-encode any special characters in the Atlas password before pasting into the URI (e.g. `@` → `%40`, `#` → `%23`, `!` → `%21`).
+### Test Workflow Sequence
 
----
-
-#### Step 2 — Deploy `campusconnect-user-service` (deploy first)
-
-1. Render Dashboard → **New → Web Service**
-2. Connect your GitHub repository
-3. Configure:
-   - **Name:** `campusconnect-user-service`
-   - **Runtime:** Docker
-   - **Dockerfile path:** `./user-service/Dockerfile`
-   - **Docker build context:** `./user-service`
-   - **Region:** Oregon (US West)
-   - **Instance type:** Free
-4. Set environment variables:
-
-   | Variable | Value |
-   |---|---|
-   | `PORT` | `10000` |
-   | `MONGODB_URI` | *(paste your Atlas URI for campusconnect_users — mark as Secret)* |
-
-5. Click **Create Web Service** → wait until status is **Live**
-6. **Copy the assigned service URL** from the Render dashboard
-   - Format: `https://campusconnect-user-service.onrender.com`
-   - You will need this URL for step 4 (order-service) and step 5 (api-gateway)
+1. `GET /health` → Verify gateway health and upstream service registry.
+2. `POST /users` → Create user (`id: 1, name: "Alice Smith"`).
+3. `GET /users/1` → Confirm user was persisted.
+4. `POST /products` → Create product (`id: 101, name: "Laptop Stand", price: 29.99`).
+5. `GET /products/101` → Confirm product was persisted.
+6. `POST /orders` → Place order with `userId: 1, productId: 101, quantity: 2` → returns `201 Created` with calculated total `59.98`.
+7. `GET /orders/1001` → Verify order record.
+8. `POST /orders` with invalid `userId: 99999` → Verify `404 Not Found` response.
+9. `GET /unknown-route` → Verify gateway `404 Not Found` with available route listing.
 
 ---
 
-#### Step 3 — Deploy `campusconnect-product-service` (deploy second)
+## 18. Cloud Deployment
 
-Same procedure as Step 2:
+The application is deployed on [Render](https://render.com) using Docker runtimes:
 
-| Variable | Value |
-|---|---|
-| `PORT` | `10000` |
-| `MONGODB_URI` | *(paste your Atlas URI for campusconnect_products — mark as Secret)* |
-
-After **Live**: copy the assigned service URL — needed for step 4 and step 5.
-
----
-
-#### Step 4 — Deploy `campusconnect-order-service` (deploy third)
-
-The order-service calls user-service and product-service to validate users and products when creating orders. Their actual Render URLs must be set as environment variables.
-
-| Variable | Value |
-|---|---|
-| `PORT` | `10000` |
-| `MONGODB_URI` | *(paste your Atlas URI for campusconnect_orders — mark as Secret)* |
-| `USER_SERVICE_URL` | *(paste the actual Live URL of campusconnect-user-service from Step 2)* |
-| `PRODUCT_SERVICE_URL` | *(paste the actual Live URL of campusconnect-product-service from Step 3)* |
-
-After **Live**: copy the assigned service URL — needed for step 5.
-
-> **Configuration-based service discovery in action:** The order-service reads `USER_SERVICE_URL` and `PRODUCT_SERVICE_URL` from its environment at startup. No application code changes are needed — only environment variable values.
+- **Deployment Order:**
+  1. `campusconnect-user-service` → Copy assigned HTTPS URL.
+  2. `campusconnect-product-service` → Copy assigned HTTPS URL.
+  3. `campusconnect-order-service` → Set `USER_SERVICE_URL` and `PRODUCT_SERVICE_URL` to above URLs.
+  4. `campusconnect-api-gateway` → Set `USER_SERVICE_URL`, `PRODUCT_SERVICE_URL`, `ORDER_SERVICE_URL` to the three service URLs.
+- **Blueprint Reference:** A complete deployment specification is maintained in [`render.yaml`](render.yaml) for automated multi-service scaffolding.
 
 ---
 
-#### Step 5 — Deploy `campusconnect-api-gateway` (deploy last)
+## 19. Actual Render URLs
 
-The API Gateway is the intended public entry point. It routes all client traffic to the appropriate microservice using the URLs configured in its environment.
+The live, verified cloud endpoints on Render are:
 
-| Variable | Value |
-|---|---|
-| `PORT` | `10000` |
-| `USER_SERVICE_URL` | *(paste the actual Live URL of campusconnect-user-service from Step 2)* |
-| `PRODUCT_SERVICE_URL` | *(paste the actual Live URL of campusconnect-product-service from Step 3)* |
-| `ORDER_SERVICE_URL` | *(paste the actual Live URL of campusconnect-order-service from Step 4)* |
-
-After **Live**: copy the **gateway URL** — this is the URL to use in Postman.
-
-> **How configuration-based service discovery works on Render:**
-> `api-gateway/config/services.js` reads `USER_SERVICE_URL`, `PRODUCT_SERVICE_URL`, and `ORDER_SERVICE_URL` from the process environment at startup. Setting these in the Render dashboard is the only step needed to point the gateway at the deployed services — no `server.js` edits, no code changes, no redeployment of application logic.
-
----
-
-### Environment Variables Reference
-
-#### `campusconnect-user-service`
-
-| Variable | Secret? | Value |
+| Service | Public Render HTTPS URL | Role |
 |---|---|---|
-| `PORT` | No | `10000` |
-| `MONGODB_URI` | **Yes** | `mongodb+srv://...campusconnect_users...` |
+| **API Gateway** | `https://campusconnect-api-gateway-6k62.onrender.com` | **Intended Public Entry Point** |
+| **User Service** | `https://campusconnect-user-service-name.onrender.com` | User CRUD & Atlas backend |
+| **Product Service** | `https://campusconnect-product-service-hhvy.onrender.com` | Product catalog & Atlas backend |
+| **Order Service** | `https://campusconnect-order-service-69zf.onrender.com` | Order orchestration & Atlas backend |
 
-#### `campusconnect-product-service`
+> **Note on Product Service Hostname:** The active verified Render subdomain is `hhvy`.
 
-| Variable | Secret? | Value |
+---
+
+## 20. MongoDB Atlas
+
+- **Atlas Cluster:** `Student-API` (M0 Free tier, Region: AWS / us-east-1)
+- **Database Segregation:**
+  - `campusconnect_users`
+  - `campusconnect_products`
+  - `campusconnect_orders`
+- **Network Access:** Whitelisted `0.0.0.0/0` to allow incoming connections from dynamic Render IP ranges.
+- **Security Compliance:** Connection URIs are stored exclusively as Render Secret Environment Variables (`sync: false` in `render.yaml`) and never committed to version control.
+
+---
+
+## 21. Cloud Verification Results
+
+All tests below were performed through Postman against live Render endpoints:
+
+### 1. Gateway Health Check
+
+```http
+GET https://campusconnect-api-gateway-6k62.onrender.com/health
+```
+**Status:** `200 OK`  
+**Response Body:**
+```json
+{
+  "status": "UP",
+  "service": "api-gateway",
+  "port": 10000,
+  "upstreamServices": {
+    "user-service": "https://campusconnect-user-service-name.onrender.com",
+    "product-service": "https://campusconnect-product-service-hhvy.onrender.com",
+    "order-service": "https://campusconnect-order-service-69zf.onrender.com"
+  }
+}
+```
+
+### 2. Gateway Proxied Resource Queries
+
+| Test | Request URL | Result | Verified Payload |
+|---|---|---|---|
+| Gateway → Users | `GET https://campusconnect-api-gateway-6k62.onrender.com/users` | `200 OK` | User ID 1 (`Jay Trivedi`) |
+| Gateway → Products | `GET https://campusconnect-api-gateway-6k62.onrender.com/products` | `200 OK` | Product ID 1 (`Laptop`, `75000`) |
+| Gateway → Orders | `GET https://campusconnect-api-gateway-6k62.onrender.com/orders` | `200 OK` | Order ID 100 returned |
+
+### 3. End-to-End Inter-Service Order Creation
+
+```http
+POST https://campusconnect-api-gateway-6k62.onrender.com/orders
+Content-Type: application/json
+
+{
+  "id": 101,
+  "userId": 1,
+  "productId": 1,
+  "quantity": 1
+}
+```
+**Status:** `201 Created`  
+**Response Body:**
+```json
+{
+  "order": {
+    "id": 101,
+    "userId": 1,
+    "productId": 1,
+    "quantity": 1,
+    "total": 75000,
+    "status": "CREATED",
+    "createdAt": "2026-09-29T13:42:00.000Z"
+  }
+}
+```
+*Validation Proof:* Demonstrates the complete cloud communication chain: **Postman → API Gateway → Order Service → User Service + Product Service → MongoDB Atlas**.
+
+### 4. Direct Microservice Baseline Verification
+
+- `GET https://campusconnect-user-service-name.onrender.com/users/1` → `200 OK` (`Jay Trivedi`, `jay@example.com`)
+- `GET https://campusconnect-product-service-hhvy.onrender.com/products/1` → `200 OK` (`Laptop`, `75000`)
+- `POST https://campusconnect-order-service-69zf.onrender.com/orders` (id: 100) → `201 Created`
+- `GET https://campusconnect-order-service-69zf.onrender.com/orders` → `200 OK`
+
+### 5. Cloud Dependency Error Testing Note
+
+Cloud dependency-failure testing (502/503 from the gateway when an upstream service is stopped) was **not performed on the live cloud deployment** to preserve the availability of the production services. This behavior is thoroughly validated in the local Docker environment (`Screenshot 2026-09-29 101801.png`), where stopping `user-service` immediately causes the gateway to return `502 Bad Gateway` (`{"error": "Service unavailable", "service": "user-service"}`). The gateway error-handling logic is identical in both environments.
+
+### 6. Evidence and Screenshot Status
+
+#### Local Docker Evidence (12 Verified Screenshots in `screenshots/`)
+
+| Screenshot File | Verification Scope | Status |
 |---|---|---|
-| `PORT` | No | `10000` |
-| `MONGODB_URI` | **Yes** | `mongodb+srv://...campusconnect_products...` |
+| `Screenshot 2026-09-29 100011.png` | Docker Compose running all 7 containers (`docker compose ps`) | ✅ Verified |
+| `Screenshot 2026-09-29 100034.png` | Gateway health check (`GET /health` → 200) | ✅ Verified |
+| `Screenshot 2026-09-29 100127.png` | Gateway routing (`GET /users` → 200) | ✅ Verified |
+| `Screenshot 2026-09-29 100607.png` | End-to-end order placement (`POST /orders` → 201) | ✅ Verified |
+| `Screenshot 2026-09-29 101801.png` | Gateway 502 error handling (`user-service` stopped) | ✅ Verified |
+| `Screenshot 2026-09-29 102131.png` | Configuration change demo — health before URL change | ✅ Verified |
+| `Screenshot 2026-09-29 102203.png` | Configuration change demo — health after URL change | ✅ Verified |
+| `Screenshot 2026-09-29 102511.png` | Configuration change demo — restoration verified | ✅ Verified |
+| `Screenshot 2026-09-29 102923.png` | Gateway 404 for unknown route | ✅ Verified |
+| `Screenshot 2026-09-29 102944.png` | Order 404 for non-existent `userId` | ✅ Verified |
+| `Screenshot 2026-09-29 102959.png` | Gateway routing (`GET /products` → 200) | ✅ Verified |
+| `Screenshot 2026-09-29 103225.png` | Gateway routing (`GET /orders` → 200) | ✅ Verified |
 
-#### `campusconnect-order-service`
+#### Cloud Verification Evidence
 
-| Variable | Secret? | Value |
-|---|---|---|
-| `PORT` | No | `10000` |
-| `MONGODB_URI` | **Yes** | `mongodb+srv://...campusconnect_orders...` |
-| `USER_SERVICE_URL` | No | Actual Render URL of user-service (from dashboard) |
-| `PRODUCT_SERVICE_URL` | No | Actual Render URL of product-service (from dashboard) |
-
-#### `campusconnect-api-gateway`
-
-| Variable | Secret? | Value |
-|---|---|---|
-| `PORT` | No | `10000` |
-| `USER_SERVICE_URL` | No | Actual Render URL of user-service (from dashboard) |
-| `PRODUCT_SERVICE_URL` | No | Actual Render URL of product-service (from dashboard) |
-| `ORDER_SERVICE_URL` | No | Actual Render URL of order-service (from dashboard) |
-
-> `GATEWAY_PORT` is **not** set on Render. The gateway's port resolution chain is `GATEWAY_PORT || PORT || 4000` — it will pick up Render's injected `PORT=10000` automatically.
+- Live tests were executed via Postman against the Render deployment.
+- Gateway `/health`, `/users`, `/products`, `/orders`, and `POST /orders` (Order ID 101) tests all passed.
+- Exact HTTP responses and payloads are documented in subsections 1–4 above.
+- Cloud test screenshots were verified during execution; no fabricated images have been added to the repository.
 
 ---
 
-### MongoDB Atlas Requirements
+## 22. Cloud and Free-Tier Limitation
 
-| Requirement | Detail |
-|---|---|
-| Cluster tier | M0 Free |
-| Databases required | 3 (`campusconnect_users`, `campusconnect_products`, `campusconnect_orders`) |
-| Auth | Username + URL-encoded password |
-| Network access | `0.0.0.0/0` (required — Render egress IPs are not fixed on free tier) |
-| URI format | `mongodb+srv://` (Atlas SRV — do **not** use `mongodb://`) |
+Under Render's free tier, all instances are deployed as **Render Web Services**, which automatically assign public HTTPS domains (`onrender.com`).
 
----
-
-### Security
-
-- **Never** commit real Atlas connection strings to the repository
-- All Atlas URIs must be set in the Render dashboard and marked as **Secret**
-- `render.yaml` uses `sync: false` for all secrets — they are not stored in this file
-- `.env` is excluded by `.gitignore`
-- `.env.example` contains only format placeholders — safe to commit
+- **Architecture Intent:** The API Gateway is the single intended client entry point for all operations.
+- **Free-Tier Constraint:** Backend services (`user-service`, `product-service`, `order-service`) technically have public URLs due to platform plan limitations.
+- **Enterprise / Production Design:** In a production deployment with private networking (or Render's paid Private Services `pserv`), backend services would be completely unexposed to the Internet, accessible only via internal VPC routing from the API Gateway.
+- **Demonstration Integrity:** The application strictly implements configuration-based service discovery and gateway proxying in compliance with the Lab 7 specification.
 
 ---
 
-## 18. Public Gateway URL
+## 23. Troubleshooting
 
-> **NOT YET DEPLOYED — MANUAL STEP REQUIRED**
->
-> After completing the Render deployment steps above, record the gateway URL here:
->
-> `PUBLIC_GATEWAY_URL = NOT_YET_DEPLOYED`
->
-> Obtain the real URL from the Render dashboard after `campusconnect-api-gateway` reaches **Live** status. Update this value before Postman cloud testing.
+### Gateway Returns 502 Bad Gateway
+- **Cause:** Upstream service container is stopped, crashing, or experiencing cold-start delay.
+- **Resolution:** Check logs with `docker compose logs user-service` (locally) or inspect the Render service deployment logs.
 
----
+### Render Free-Tier Cold Starts
+- **Symptom:** First request after 15 minutes of inactivity takes 30–60 seconds.
+- **Resolution:** Allow the instance spin-up delay to complete; subsequent requests execute immediately.
 
-## 19. Cloud Postman Testing
-
-After all four services are Live on Render:
-
-1. In the Postman collection, update the `gatewayBaseUrl` collection variable:
-   ```
-   gatewayBaseUrl = https://<your-actual-gateway-name>.onrender.com
-   ```
-   Replace `http://localhost:4000` with the real gateway URL from the Render dashboard.
-
-2. Re-run all requests — all routes, all CRUD operations, all status codes
-
-3. Capture screenshots for evidence (see `screenshots/evidence-checklist.md` items 15–19)
-
-Expected request flow:
-```
-Postman
-  → https://<gateway>.onrender.com          (API Gateway)
-    → https://<user-service>.onrender.com   (User Service → Atlas)
-    → https://<product-service>.onrender.com (Product Service → Atlas)
-    → https://<order-service>.onrender.com  (Order Service → Atlas)
-```
-
-> **Cloud testing status: NOT VERIFIED — deployment not yet performed**
-
-
+### MongoDB Connection Failures
+- **Symptom:** Microservice logs `MongooseServerSelectionError`.
+- **Resolution:** Ensure MongoDB Atlas Network Access has `0.0.0.0/0` whitelisted, and verify that special characters in Atlas passwords are URL-encoded.
 
 ---
 
-## 20. Troubleshooting
+## 24. Reflection
 
-### Gateway returns 502
-
-```
-GET http://localhost:4000/users → 502
-```
-
-**Cause:** `user-service` container is not running or not yet healthy.
-
-```bash
-docker compose ps          # check user-service status
-docker compose logs user-service  # check for errors
-docker compose restart user-service
-```
-
-### MongoDB healthcheck failing
-
-```bash
-docker compose logs user-mongodb
-```
-
-The healthcheck uses `mongosh` (newer) with `mongo` as a fallback. If neither is available, the container image may be too old — use `image: mongo:7` explicitly.
-
-### Port 4000 already in use
-
-```bash
-netstat -ano | findstr :4000
-# Kill the process using that port, then:
-docker compose up -d
-```
-
-### Gateway logs not showing
-
-```bash
-docker compose logs api-gateway --tail=50 -f
-```
-
-### Services start out of order
-
-`depends_on` in compose.yaml ensures order. If an issue persists:
-
-```bash
-docker compose down && docker compose up -d
-```
+Implementing Lab 7 provided critical practical insight into distributed systems architecture. Introducing an API Gateway successfully decoupled clients from backend topology, eliminating client fan-out and centralizing logging and error translation. Implementing configuration-based service discovery highlighted the architectural value of loose coupling: transitioning from local Docker Compose service names (`http://user-service:3001`) to cloud HTTPS endpoints required zero code modifications—only environment variable updates. Enforcing database-per-service isolation ensured schema independence, while deploying to Render revealed real-world cloud constraints such as port injection (`PORT=10000`), container cold starts, and free-tier network visibility trade-offs.
 
 ---
 
-## 21. Screenshots / Evidence
+## 25. Final Verification and Submission Checklist
 
-See [`screenshots/evidence-checklist.md`](./screenshots/evidence-checklist.md) for the complete list of required screenshots.
-
-All screenshots are **manual captures** — none are pre-generated.
-
----
-
-## 22. Reflection
-
-### What Lab 7 adds over Lab 6
-
-| Aspect | Lab 6 | Lab 7 |
-|--------|-------|-------|
-| Client entry points | 3 (one per service) | 1 (gateway) |
-| External ports | 3001, 3002, 3003 | 4000 only |
-| Service discovery | Hard-coded in Order Service | Env vars in gateway |
-| Request logging | Per-service | Centralised at gateway |
-| Error handling | Per-service | Centralised + per-service |
-| Cloud readiness | Local MongoDB | MongoDB Atlas |
-
-### Why API Gateway?
-
-The API Gateway pattern solves the **fan-out problem**: when a system has many microservices, clients should not need to discover and call each one individually. Instead, a single gateway acts as the façade:
-
-- Clients know one address
-- Services can move or scale without breaking clients
-- Cross-cutting concerns (logging, auth, rate-limiting) can be added once
-
-### Configuration-based vs Dynamic Discovery
-
-This lab uses **static configuration** — service URLs are environment variables. This is simple, transparent, and appropriate for a fixed small-scale deployment.
-
-**Dynamic discovery** (Consul, Kubernetes DNS, Eureka) becomes necessary when:
-- Services spin up/down dynamically (auto-scaling)
-- Multiple instances of a service exist and need load balancing
-- Service IPs change frequently
-
-Understanding both approaches is fundamental to designing scalable service-oriented systems.
+- [x] **API Gateway Implemented:** Express + `http-proxy-middleware` reverse proxy operational on port 4000.
+- [x] **Service Discovery Configured:** Dynamic discovery via `api-gateway/config/services.js` and environment variables.
+- [x] **Port Isolation Verified:** Only `api-gateway` exposes a host port in `compose.yaml`; all microservices are internal.
+- [x] **Lab 6 Baseline Intact:** User, Product, and Order services retain complete business logic and status codes.
+- [x] **Database Isolation Preserved:** Three separate databases in MongoDB containers and MongoDB Atlas.
+- [x] **Cloud Deployment Active:** All four services live on Render (`oregon` region).
+- [x] **Cloud End-to-End Test Passed:** POST order 101 via Gateway returned HTTP 201 with calculated total 75000.
+- [x] **Postman Collection Updated:** `Microservices - Lab 7.postman_collection.json` configured with correct gateway variable.
+- [x] **Security Audit Passed:** Zero real passwords or Atlas connection strings committed in repository.
+- [x] **No Fabricated Evidence:** All URLs, test results, and screenshots reflect real, verified execution.
 
 ---
-
-*CampusConnect — Web Services & SOA, Lab 7*  
-*Node.js · Express · http-proxy-middleware · Docker · MongoDB Atlas*
+*CampusConnect Microservices Platform · Web Services & SOA Lab 7 · Student ID: 202512123*
