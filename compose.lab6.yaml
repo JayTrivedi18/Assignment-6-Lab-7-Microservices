@@ -1,0 +1,119 @@
+services:
+  # Lab 6 compose — preserved for reference.
+  # Services have direct host ports for local development/testing.
+  # Use compose.yaml (Lab 7) for the gateway-based architecture.
+
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    container_name: user-service
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      MONGODB_URI: mongodb://user-mongodb:27017/campusconnect_users
+    depends_on:
+      user-mongodb:
+        condition: service_healthy
+    networks:
+      - campus-network
+    restart: unless-stopped
+
+  user-mongodb:
+    image: mongo
+    container_name: user-mongodb
+    volumes:
+      - user-mongo-data:/data/db
+    networks:
+      - campus-network
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --eval 'db.adminCommand(\"ping\")' || mongo --eval 'db.adminCommand(\"ping\")'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  product-service:
+    build:
+      context: ./product-service
+      dockerfile: Dockerfile
+    container_name: product-service
+    ports:
+      - "3002:3002"
+    environment:
+      PORT: 3002
+      MONGODB_URI: mongodb://product-mongodb:27017/campusconnect_products
+    depends_on:
+      product-mongodb:
+        condition: service_healthy
+    networks:
+      - campus-network
+    restart: unless-stopped
+
+  product-mongodb:
+    image: mongo
+    container_name: product-mongodb
+    volumes:
+      - product-mongo-data:/data/db
+    networks:
+      - campus-network
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --eval 'db.adminCommand(\"ping\")' || mongo --eval 'db.adminCommand(\"ping\")'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  order-service:
+    build:
+      context: ./order-service
+      dockerfile: Dockerfile
+    container_name: order-service
+    ports:
+      - "3003:3003"
+    environment:
+      PORT: 3003
+      MONGODB_URI: mongodb://order-mongodb:27017/campusconnect_orders
+      USER_SERVICE_URL: http://user-service:3001
+      PRODUCT_SERVICE_URL: http://product-service:3002
+    depends_on:
+      order-mongodb:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+      product-service:
+        condition: service_started
+    networks:
+      - campus-network
+    restart: unless-stopped
+
+  order-mongodb:
+    image: mongo
+    container_name: order-mongodb
+    volumes:
+      - order-mongo-data:/data/db
+    networks:
+      - campus-network
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --eval 'db.adminCommand(\"ping\")' || mongo --eval 'db.adminCommand(\"ping\")'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+networks:
+  campus-network:
+    name: campus-network
+    driver: bridge
+
+volumes:
+  user-mongo-data:
+    name: user-mongo-data
+  product-mongo-data:
+    name: product-mongo-data
+  order-mongo-data:
+    name: order-mongo-data

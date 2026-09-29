@@ -1,0 +1,156 @@
+services:
+  # -------------------------------------------------------------
+  # User Service & Database
+  # -------------------------------------------------------------
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    container_name: user-service
+    # NO host-port mapping — only reachable inside campus-network
+    # External clients must go through the API Gateway
+    environment:
+      PORT: 3001
+      MONGODB_URI: mongodb://user-mongodb:27017/campusconnect_users
+    depends_on:
+      user-mongodb:
+        condition: service_healthy
+    networks:
+      - campus-network
+    restart: unless-stopped
+
+  user-mongodb:
+    image: mongo
+    container_name: user-mongodb
+    volumes:
+      - user-mongo-data:/data/db
+    networks:
+      - campus-network
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --eval 'db.adminCommand(\"ping\")' || mongo --eval 'db.adminCommand(\"ping\")'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  # -------------------------------------------------------------
+  # Product Service & Database
+  # -------------------------------------------------------------
+  product-service:
+    build:
+      context: ./product-service
+      dockerfile: Dockerfile
+    container_name: product-service
+    # NO host-port mapping — only reachable inside campus-network
+    environment:
+      PORT: 3002
+      MONGODB_URI: mongodb://product-mongodb:27017/campusconnect_products
+    depends_on:
+      product-mongodb:
+        condition: service_healthy
+    networks:
+      - campus-network
+    restart: unless-stopped
+
+  product-mongodb:
+    image: mongo
+    container_name: product-mongodb
+    volumes:
+      - product-mongo-data:/data/db
+    networks:
+      - campus-network
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --eval 'db.adminCommand(\"ping\")' || mongo --eval 'db.adminCommand(\"ping\")'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  # -------------------------------------------------------------
+  # Order Service & Database
+  # -------------------------------------------------------------
+  order-service:
+    build:
+      context: ./order-service
+      dockerfile: Dockerfile
+    container_name: order-service
+    # NO host-port mapping — only reachable inside campus-network
+    environment:
+      PORT: 3003
+      MONGODB_URI: mongodb://order-mongodb:27017/campusconnect_orders
+      # Inter-service URLs: Order Service calls User/Product using Docker DNS
+      USER_SERVICE_URL: http://user-service:3001
+      PRODUCT_SERVICE_URL: http://product-service:3002
+    depends_on:
+      order-mongodb:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+      product-service:
+        condition: service_started
+    networks:
+      - campus-network
+    restart: unless-stopped
+
+  order-mongodb:
+    image: mongo
+    container_name: order-mongodb
+    volumes:
+      - order-mongo-data:/data/db
+    networks:
+      - campus-network
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --eval 'db.adminCommand(\"ping\")' || mongo --eval 'db.adminCommand(\"ping\")'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  # -------------------------------------------------------------
+  # API Gateway — the ONLY service with a host port (Lab 7 key requirement)
+  # -------------------------------------------------------------
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    # Single externally-exposed port — all client traffic enters here
+    ports:
+      - "4000:4000"
+    environment:
+      GATEWAY_PORT: 4000
+      # Configuration-based service discovery:
+      # Change these values to reroute the gateway without modifying server.js
+      USER_SERVICE_URL: http://user-service:3001
+      PRODUCT_SERVICE_URL: http://product-service:3002
+      ORDER_SERVICE_URL: http://order-service:3003
+    depends_on:
+      - user-service
+      - product-service
+      - order-service
+    networks:
+      - campus-network
+    restart: unless-stopped
+
+# -------------------------------------------------------------
+# Shared Bridge Network
+# Docker DNS resolves service names: user-service, product-service, etc.
+# -------------------------------------------------------------
+networks:
+  campus-network:
+    name: campus-network
+    driver: bridge
+
+# -------------------------------------------------------------
+# Isolated Persistent Named Volumes (one per service — Lab 6 requirement)
+# -------------------------------------------------------------
+volumes:
+  user-mongo-data:
+    name: user-mongo-data
+  product-mongo-data:
+    name: product-mongo-data
+  order-mongo-data:
+    name: order-mongo-data

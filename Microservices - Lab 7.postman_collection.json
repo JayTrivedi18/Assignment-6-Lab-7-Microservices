@@ -1,0 +1,356 @@
+{
+  "info": {
+    "_postman_id": "lab7-campusconnect-gateway-2026",
+    "name": "Microservices – Lab 7",
+    "description": "Lab 7 – API Gateway, Service Discovery & Cloud Deployment\n\nAll requests go through the API Gateway at {{gatewayBaseUrl}}.\nDo NOT call user-service, product-service, or order-service directly.\n\nSet the 'gatewayBaseUrl' variable:\n  Local Docker:  http://localhost:4000\n  Cloud:         <your public gateway URL>",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "gatewayBaseUrl",
+      "value": "http://localhost:4000",
+      "type": "string",
+      "description": "Base URL of the API Gateway. Change to cloud URL for cloud testing."
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Gateway Health",
+      "description": "Verify the API Gateway itself is running and reports its service registry.",
+      "item": [
+        {
+          "name": "GET /health — Gateway Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/health",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Handled locally by the gateway — NOT proxied to any upstream service.\nExpected: 200 { status: 'UP', service: 'api-gateway' }"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Gateway → User",
+      "description": "All user operations proxied through the gateway to user-service:3001 (internal).",
+      "item": [
+        {
+          "name": "POST /users — Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 1,\n  \"name\": \"Alice Smith\",\n  \"email\": \"alice@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/users",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["users"]
+            },
+            "description": "Gateway → user-service POST /users\nExpected: 201 { user: { id, name, email } }"
+          },
+          "response": []
+        },
+        {
+          "name": "GET /users — List All Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/users",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["users"]
+            },
+            "description": "Gateway → user-service GET /users\nExpected: 200 { users: [...] }"
+          },
+          "response": []
+        },
+        {
+          "name": "GET /users/1 — Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/users/1",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["users", "1"]
+            },
+            "description": "Gateway → user-service GET /users/1\nExpected: 200 { user: { id: 1, name, email } }"
+          },
+          "response": []
+        },
+        {
+          "name": "PUT /users/1 — Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Alice Johnson\"\n}"
+            },
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/users/1",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["users", "1"]
+            },
+            "description": "Gateway → user-service PUT /users/1\nExpected: 200 { user: { id: 1, name: 'Alice Johnson', email } }"
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /users/1 — Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/users/1",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["users", "1"]
+            },
+            "description": "Gateway → user-service DELETE /users/1\nExpected: 200 { message: 'User deleted successfully', id: 1 }"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Gateway → Product",
+      "description": "All product operations proxied through the gateway to product-service:3002 (internal).",
+      "item": [
+        {
+          "name": "POST /products — Create Product",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 101,\n  \"name\": \"Laptop Stand\",\n  \"price\": 29.99,\n  \"description\": \"Adjustable aluminium laptop stand\"\n}"
+            },
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/products",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["products"]
+            },
+            "description": "Gateway → product-service POST /products\nExpected: 201 { product: { id, name, price, description } }"
+          },
+          "response": []
+        },
+        {
+          "name": "GET /products — List All Products",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/products",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["products"]
+            },
+            "description": "Gateway → product-service GET /products\nExpected: 200 { products: [...] }"
+          },
+          "response": []
+        },
+        {
+          "name": "GET /products/101 — Get Product by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/products/101",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["products", "101"]
+            },
+            "description": "Gateway → product-service GET /products/101\nExpected: 200 { product: { id: 101, ... } }"
+          },
+          "response": []
+        },
+        {
+          "name": "PUT /products/101 — Update Product",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 34.99\n}"
+            },
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/products/101",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["products", "101"]
+            },
+            "description": "Gateway → product-service PUT /products/101\nExpected: 200 { product: { id: 101, price: 34.99, ... } }"
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /products/101 — Delete Product",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/products/101",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["products", "101"]
+            },
+            "description": "Gateway → product-service DELETE /products/101\nExpected: 200 { message: 'Product deleted successfully', id: 101 }"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Gateway → Order",
+      "description": "All order operations proxied through the gateway to order-service:3003 (internal).\nOrder Service still performs inter-service REST validation (User + Product) using Docker DNS — this is unchanged from Lab 6.",
+      "item": [
+        {
+          "name": "POST /orders — Create Order (valid userId + productId)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 1001,\n  \"userId\": 1,\n  \"productId\": 101,\n  \"quantity\": 2\n}"
+            },
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/orders",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["orders"]
+            },
+            "description": "Gateway → order-service POST /orders\nOrder Service internally validates userId=1 and productId=101.\nExpected: 201 { order: { id, userId, productId, quantity, total, status, createdAt } }"
+          },
+          "response": []
+        },
+        {
+          "name": "GET /orders — List All Orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/orders",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["orders"]
+            },
+            "description": "Gateway → order-service GET /orders\nExpected: 200 { orders: [...] }"
+          },
+          "response": []
+        },
+        {
+          "name": "GET /orders/1001 — Get Order by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/orders/1001",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["orders", "1001"]
+            },
+            "description": "Gateway → order-service GET /orders/1001\nExpected: 200 { order: { id: 1001, ... } }"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Error Handling",
+      "description": "Tests for error scenarios: invalid references and gateway 502 when upstream is unreachable.",
+      "item": [
+        {
+          "name": "POST /orders — Invalid userId (→ 404)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 9999,\n  \"userId\": 99999,\n  \"productId\": 101,\n  \"quantity\": 1\n}"
+            },
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/orders",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["orders"]
+            },
+            "description": "Gateway → order-service → user-service (user 99999 does not exist)\nExpected: 404 { error: 'User not found' }\nThis tests that Lab 6 inter-service validation is preserved end-to-end through the gateway."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /users/99999 — Non-existent User (→ 404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/users/99999",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["users", "99999"]
+            },
+            "description": "Gateway → user-service GET /users/99999\nExpected: 404 { error: 'User not found' }"
+          },
+          "response": []
+        },
+        {
+          "name": "GET /users — Service Stopped (→ 502)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/users",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["users"]
+            },
+            "description": "MANUAL SETUP REQUIRED:\n  docker compose stop user-service\n\nThen send this request.\nExpected: 502 { error: 'Service unavailable', service: 'user-service' }\n\nThe gateway returns a clean JSON 502 instead of a connection error.\n\nRestore with:\n  docker compose start user-service"
+          },
+          "response": []
+        },
+        {
+          "name": "GET /unknown-route — Gateway 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/unknown-route",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["unknown-route"]
+            },
+            "description": "Gateway catch-all 404 for routes not registered in the gateway.\nExpected: 404 { error: 'Not found', availableRoutes: [...] }"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6. Service Discovery / Configuration",
+      "description": "Documents the configuration-based service discovery pattern.\nChanging USER_SERVICE_URL / PRODUCT_SERVICE_URL / ORDER_SERVICE_URL env vars\nreroutes the gateway without touching server.js.",
+      "item": [
+        {
+          "name": "GET /health — Verify Service Registry in Response",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayBaseUrl}}/health",
+              "host": ["{{gatewayBaseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "The /health response includes 'upstreamServices' showing the current service registry values.\nThis is how you can verify that gateway is pointing at the correct service locations.\n\nConfiguration Change Demonstration:\n1. Stop the stack: docker compose down\n2. Edit compose.yaml USER_SERVICE_URL to point at a different valid host\n3. Rebuild: docker compose up -d\n4. Call GET /health — upstreamServices.user-service will reflect the new URL\n5. Call GET /users — still works (or returns 502 if the new target doesn't exist)\nNo changes to api-gateway/server.js were required."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

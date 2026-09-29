@@ -1,0 +1,172 @@
+# ═══════════════════════════════════════════════════════════════════════
+# CampusConnect — Render Blueprint (render.yaml)
+# Lab 7: Microservices Cloud Deployment — Plan B (all Web Services)
+# ═══════════════════════════════════════════════════════════════════════
+#
+# DEPLOYMENT APPROACH (Plan B — Render Free Tier):
+#   All four services are deployed as Render Web Services (type: web).
+#   On the free tier, all Web Services receive a public HTTPS URL from
+#   Render (https://<name>.onrender.com). There is no network-level
+#   isolation between them.
+#
+#   The API Gateway is the INTENDED external entry point for the
+#   application. All Postman/client traffic should use the gateway URL.
+#   The individual microservice URLs technically exist but should not
+#   be used directly by external clients.
+#
+#   If stricter isolation were required, the three microservices could
+#   be deployed as Render Private Services (type: pserv) on a paid plan.
+#   That is out of scope for this free-tier lab deployment.
+#
+# HOW TO USE:
+#   Option A — Render Blueprint (recommended):
+#     1. Push this repository (including render.yaml) to GitHub.
+#     2. Render Dashboard → New → Blueprint → select your repo.
+#     3. Render scaffolds all four services. Secrets (sync: false) must
+#        be entered manually in the Render dashboard before each deploy.
+#
+#   Option B — Manual (create each service individually):
+#     Follow the step-by-step instructions in README.md Section 17.
+#
+# DEPLOYMENT ORDER (critical — each URL is needed by the next service):
+#   1. campusconnect-user-service     → copy its URL
+#   2. campusconnect-product-service  → copy its URL
+#   3. campusconnect-order-service    → paste user + product URLs, copy its URL
+#   4. campusconnect-api-gateway      → paste all three service URLs
+#
+# SECRETS:
+#   • Never commit real MongoDB Atlas connection strings here.
+#   • All env vars marked  sync: false  must be entered in the
+#     Render dashboard — they are not stored in this file.
+#   • Real Render service URLs are obtained from the dashboard AFTER
+#     each service is Live — they cannot be known in advance.
+#
+# REGION:
+#   All services MUST use the same region so that HTTP calls between
+#   services resolve correctly. Oregon (US West) is used here.
+# ═══════════════════════════════════════════════════════════════════════
+
+services:
+
+  # ─────────────────────────────────────────────────────────────────
+  # 1. User Service
+  #    Type: Web Service (free tier — has a public Render URL)
+  #    Role: Manages user data, backed by MongoDB Atlas users database
+  #    Deploy FIRST. Copy its URL for order-service and api-gateway.
+  # ─────────────────────────────────────────────────────────────────
+  - type: web
+    name: campusconnect-user-service
+    runtime: docker
+    dockerfilePath: ./user-service/Dockerfile
+    dockerContext: ./user-service
+    plan: free
+    region: oregon
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: MONGODB_URI
+        # ↑ REQUIRED: Set this in the Render dashboard (mark as Secret).
+        # Do NOT commit the real Atlas URI here.
+        # Format:
+        #   mongodb+srv://<username>:<password>@<cluster>.mongodb.net/campusconnect_users?retryWrites=true&w=majority
+        sync: false
+
+  # ─────────────────────────────────────────────────────────────────
+  # 2. Product Service
+  #    Type: Web Service (free tier — has a public Render URL)
+  #    Role: Manages product data, backed by MongoDB Atlas products database
+  #    Deploy SECOND. Copy its URL for order-service and api-gateway.
+  # ─────────────────────────────────────────────────────────────────
+  - type: web
+    name: campusconnect-product-service
+    runtime: docker
+    dockerfilePath: ./product-service/Dockerfile
+    dockerContext: ./product-service
+    plan: free
+    region: oregon
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: MONGODB_URI
+        # ↑ REQUIRED: Set in Render dashboard (mark as Secret).
+        # Format:
+        #   mongodb+srv://<username>:<password>@<cluster>.mongodb.net/campusconnect_products?retryWrites=true&w=majority
+        sync: false
+
+  # ─────────────────────────────────────────────────────────────────
+  # 3. Order Service
+  #    Type: Web Service (free tier — has a public Render URL)
+  #    Role: Manages orders; calls User Service and Product Service
+  #          for inter-service validation (user exists, product exists).
+  #    Deploy THIRD, after user-service and product-service are Live.
+  #    Paste their actual Render URLs into USER_SERVICE_URL and
+  #    PRODUCT_SERVICE_URL before deploying.
+  # ─────────────────────────────────────────────────────────────────
+  - type: web
+    name: campusconnect-order-service
+    runtime: docker
+    dockerfilePath: ./order-service/Dockerfile
+    dockerContext: ./order-service
+    plan: free
+    region: oregon
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: MONGODB_URI
+        # ↑ REQUIRED: Set in Render dashboard (mark as Secret).
+        # Format:
+        #   mongodb+srv://<username>:<password>@<cluster>.mongodb.net/campusconnect_orders?retryWrites=true&w=majority
+        sync: false
+      - key: USER_SERVICE_URL
+        # ↑ REQUIRED: Paste the actual Live URL of campusconnect-user-service
+        # from the Render dashboard AFTER it is deployed and Live.
+        # Example format: https://campusconnect-user-service.onrender.com
+        # Do NOT fabricate or guess this URL.
+        sync: false
+      - key: PRODUCT_SERVICE_URL
+        # ↑ REQUIRED: Paste the actual Live URL of campusconnect-product-service
+        # from the Render dashboard AFTER it is deployed and Live.
+        # Example format: https://campusconnect-product-service.onrender.com
+        # Do NOT fabricate or guess this URL.
+        sync: false
+
+  # ─────────────────────────────────────────────────────────────────
+  # 4. API Gateway  ← THE INTENDED PUBLIC ENTRY POINT
+  #    Type: Web Service (free tier — has a public Render URL)
+  #    Role: Single external entry point. Routes /users/*, /products/*,
+  #          /orders/* to the respective microservices via env-var-
+  #          configured URLs (configuration-based service discovery).
+  #    Deploy LAST, after all three microservices are Live.
+  #    Paste the actual Render URLs of all three services before deploying.
+  #
+  #    IMPORTANT: The gateway URL is the URL that should be used in
+  #    Postman and presented as the application's public endpoint.
+  # ─────────────────────────────────────────────────────────────────
+  - type: web
+    name: campusconnect-api-gateway
+    runtime: docker
+    dockerfilePath: ./api-gateway/Dockerfile
+    dockerContext: ./api-gateway
+    plan: free
+    region: oregon
+    envVars:
+      - key: PORT
+        value: "10000"
+      # ── Configuration-based service discovery ────────────────────
+      # The gateway reads these at startup via api-gateway/config/services.js.
+      # No server.js edits are needed — changing these env vars and
+      # restarting the gateway is all that is required to reroute traffic.
+      # Paste the actual Live Render URLs after each service is deployed.
+      - key: USER_SERVICE_URL
+        # ↑ REQUIRED: Actual Live URL of campusconnect-user-service.
+        # Example format: https://campusconnect-user-service.onrender.com
+        # Do NOT fabricate or guess this URL.
+        sync: false
+      - key: PRODUCT_SERVICE_URL
+        # ↑ REQUIRED: Actual Live URL of campusconnect-product-service.
+        # Example format: https://campusconnect-product-service.onrender.com
+        sync: false
+      - key: ORDER_SERVICE_URL
+        # ↑ REQUIRED: Actual Live URL of campusconnect-order-service.
+        # Example format: https://campusconnect-order-service.onrender.com
+        sync: false

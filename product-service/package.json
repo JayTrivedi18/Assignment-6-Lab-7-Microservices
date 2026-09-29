@@ -1,0 +1,13 @@
+{
+  "name": "product-service",
+  "version": "1.0.0",
+  "description": "Product Microservice for CampusConnect - Web Services & SOA Lab 6",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "mongoose": "^8.9.5"
+  }
+}
