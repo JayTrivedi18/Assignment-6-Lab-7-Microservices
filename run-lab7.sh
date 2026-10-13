@@ -4,7 +4,7 @@
 # ══════════════════════════════════════════════════════
 
 # Step 1 — Navigate to project
-cd "D:\Web Services & SOA\Assignment_6_202512123"
+cd "D:\Web Services & SOA\Assignment_7_202512123"
 
 # Step 2 — Validate compose YAML syntax
 docker compose config
